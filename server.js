@@ -15,7 +15,7 @@ const EMAIL_PASS = process.env.EMAIL_PASS || '';
 // 创建邮件发送器 (网易 163 邮箱配置)
 const transporter = nodemailer.createTransport({
     host: 'smtp.163.com',
-    port: 465,
+    port: 587,
     secure: true, // 163 邮箱 465 端口需要设置为 true
     auth: {
         user: EMAIL_USER,
