@@ -7,7 +7,7 @@
     <style>
         .register-box {
             max-width: 400px;
-            margin: 100px auto;
+            margin: 80px auto;
             padding: 30px;
             background-color: var(--container-bg);
             border-radius: 8px;
@@ -26,6 +26,28 @@
             color: white;
             border-radius: 4px;
         }
+        .code-input-group {
+            display: flex;
+            gap: 10px;
+        }
+        .code-input-group input {
+            flex: 1;
+        }
+        .btn-code {
+            background-color: #555;
+            color: white;
+            border: none;
+            padding: 0 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        .btn-code:disabled {
+            background-color: #333;
+            color: #777;
+            cursor: not-allowed;
+        }
         .message {
             margin-top: 10px;
             font-size: 0.9rem;
@@ -42,8 +64,24 @@
         <label>用户名</label>
         <input type="text" id="username" placeholder="请输入用户名">
     </div>
+
+    <!-- 新增：邮箱地址输入 -->
     <div class="form-group">
-        <label>密码</label>
+        <label>邮箱地址</label>
+        <input type="email" id="email" placeholder="请输入您的163或常用邮箱">
+    </div>
+
+    <!-- 新增：验证码输入与获取按钮 -->
+    <div class="form-group">
+        <label>验证码</label>
+        <div class="code-input-group">
+            <input type="text" id="code" placeholder="6位验证码">
+            <button class="btn-code" id="btnSendCode" onclick="sendCode()">获取验证码</button>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>设置密码</label>
         <input type="password" id="password" placeholder="请输入密码">
     </div>
     
@@ -57,29 +95,88 @@
 </div>
 
 <script>
-    async function doRegister() {
-        const u = document.getElementById('username').value;
-        const p = document.getElementById('password').value;
+    // 发送验证码
+    async function sendCode() {
+        const email = document.getElementById('email').value.trim();
+        const btn = document.getElementById('btnSendCode');
         const msgDiv = document.getElementById('msg');
 
-        if(!u || !p) {
+        if (!email || !email.includes('@')) {
             msgDiv.style.color = "red";
-            msgDiv.innerText = "用户名或密码不能为空";
+            msgDiv.innerText = "请输入正确的邮箱地址";
             return;
         }
 
+        btn.disabled = true;
+        msgDiv.style.color = "lightgray";
+        msgDiv.innerText = "正在发送验证码...";
+
         try {
-            // 向后端发送注册请求
-            const response = await fetch('/api/register', {
+            const response = await fetch('/api/send-code', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: u, password: p })
+                body: JSON.stringify({ email })
             });
             const data = await response.json();
 
             if (response.ok) {
                 msgDiv.style.color = "lightgreen";
-                msgDiv.innerText = "注册成功！3秒后跳转登录页...";
+                msgDiv.innerText = "验证码已发送至您的邮箱，请注意查收";
+                startCooldown(btn);
+            } else {
+                msgDiv.style.color = "red";
+                msgDiv.innerText = data.message || "发送验证码失败";
+                btn.disabled = false;
+            }
+        } catch (err) {
+            msgDiv.style.color = "red";
+            msgDiv.innerText = "无法连接至服务器";
+            btn.disabled = false;
+        }
+    }
+
+    // 倒计时 60 秒限制重新发送
+    function startCooldown(button) {
+        let seconds = 60;
+        button.innerText = `${seconds}s`;
+        
+        const interval = setInterval(() => {
+            seconds--;
+            if (seconds <= 0) {
+                clearInterval(interval);
+                button.disabled = false;
+                button.innerText = "获取验证码";
+            } else {
+                button.innerText = `${seconds}s`;
+            }
+        }, 1000);
+    }
+
+    // 执行注册
+    async function doRegister() {
+        const u = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const code = document.getElementById('code').value.trim();
+        const p = document.getElementById('password').value.trim();
+        const msgDiv = document.getElementById('msg');
+
+        if (!u || !email || !code || !p) {
+            msgDiv.style.color = "red";
+            msgDiv.innerText = "所有字段均为必填项";
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: u, password: p, email, code })
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                msgDiv.style.color = "lightgreen";
+                msgDiv.innerText = "注册成功！正在跳转至登录页...";
                 setTimeout(() => {
                     location.href = 'login.html';
                 }, 2000);
