@@ -1,29 +1,16 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const nodemailer = require('nodemailer'); // 引入发信模块
 
 const PORT = 3000;
 const DB_FILE = path.join(__dirname, 'users.json');
 
-// ==================== 【Brevo 发信邮箱配置】 ====================
-const EMAIL_USER = process.env.EMAIL_USER || ''; // 截图中的 Login 账号
-const EMAIL_PASS = process.env.EMAIL_PASS || '';     // 您生成的 xsmtpsib- 开头的密钥
-const SENDER_EMAIL = process.env.SENDER_EMAIL || ''; // 例如:  (必须是您注册Brevo的邮箱)
+// ==================== 【Brevo Web API 配置】 ====================
+// 我们不再需要端口、host等配置，只需要 API Key 和发信邮箱即可！
+const BREVO_API_KEY = process.env.EMAIL_PASS || '';  // 在 Render 配置为您新生成的 API Key (xkeysib-...)
+const SENDER_EMAIL = process.env.SENDER_EMAIL || ''; // 在 Render 配置为您注册 Brevo 的个人邮箱
+// ===============================================================
 
-// 创建邮件发送器
-const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false, // 587 端口必须为 false
-    auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS
-    }
-});
-// =========================================================
-
-// 用于在服务器内存中临时保存验证码，格式： { "email@xx.com": { code: "123456", expires: 时间戳 } }
 const verificationCodes = {};
 
 if (!fs.existsSync(DB_FILE)) {
@@ -44,7 +31,7 @@ function saveUsers(users) {
 
 const server = http.createServer((req, res) => {
     
-    // 1. 发送验证码 API
+    // 1. 发送验证码 API (改用原生的 HTTPS fetch API 发送)
     if (req.method === 'POST' && req.url === '/api/send-code') {
         let body = '';
         req.on('data', chunk => { body += chunk.toString(); });
@@ -56,35 +43,49 @@ const server = http.createServer((req, res) => {
                     return res.end(JSON.stringify({ message: '请输入有效的邮箱地址' }));
                 }
 
-                // 生成 6 位随机数字验证码
                 const code = Math.floor(100000 + Math.random() * 900000).toString();
-                // 设置过期时间为 5 分钟后
                 const expires = Date.now() + 5 * 60 * 1000;
                 verificationCodes[email] = { code, expires };
 
-                // 邮件内容配置
-                const mailOptions = {
-                    from: `"工程工具箱" <${SENDER_EMAIL}>`, // 发件人
-                    to: email, // 收件人
+                // 准备向 Brevo 发送 HTTPS POST 请求的数据
+                const mailData = {
+                    sender: { name: "工程工具箱", email: SENDER_EMAIL },
+                    to: [{ email: email }],
                     subject: '【工程工具箱】注册验证码',
-                    text: `您的验证码是：${code}，请在 5 分钟内输入。如果非本人操作，请忽略此邮件。`
+                    textContent: `您的验证码是：${code}，请在 5 分钟内输入。如果非本人操作，请忽略此邮件。`
                 };
 
-                // 发送邮件
-                await transporter.sendMail(mailOptions);
+                // 直接使用原生 fetch 通过安全的 443 端口发送请求
+                const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+                    method: 'POST',
+                    headers: {
+                        'accept': 'application/json',
+                        'api-key': BREVO_API_KEY,
+                        'content-type': 'application/json'
+                    },
+                    body: JSON.stringify(mailData)
+                });
 
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: '验证码发送成功' }));
+                const responseData = await response.json();
+
+                if (response.ok) {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ message: '验证码发送成功' }));
+                } else {
+                    console.error('Brevo API 返回错误:', responseData);
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ message: responseData.message || '发送验证码失败' }));
+                }
             } catch (err) {
-                console.error('发送邮件失败:', err);
+                console.error('网络请求失败:', err);
                 res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: '验证码发送失败，请检查邮箱配置或稍后再试' }));
+                res.end(JSON.stringify({ message: '发送失败，请稍后再试' }));
             }
         });
         return;
     }
 
-    // 2. 注册 API (加入邮箱验证)
+    // 2. 注册 API
     if (req.method === 'POST' && req.url === '/api/register') {
         let body = '';
         req.on('data', chunk => { body += chunk.toString(); });
@@ -96,14 +97,13 @@ const server = http.createServer((req, res) => {
                     return res.end(JSON.stringify({ message: '所有字段均为必填项' }));
                 }
 
-                // 校验验证码是否存在及是否过期
                 const record = verificationCodes[email];
                 if (!record) {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     return res.end(JSON.stringify({ message: '请先获取验证码' }));
                 }
                 if (Date.now() > record.expires) {
-                    delete verificationCodes[email]; // 清理过期数据
+                    delete verificationCodes[email];
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     return res.end(JSON.stringify({ message: '验证码已过期，请重新获取' }));
                 }
@@ -112,7 +112,6 @@ const server = http.createServer((req, res) => {
                     return res.end(JSON.stringify({ message: '验证码错误' }));
                 }
 
-                // 验证码通过，执行注册
                 const users = getUsers();
                 if (users.find(u => u.username === username)) {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -125,8 +124,6 @@ const server = http.createServer((req, res) => {
 
                 users.push({ username, password, email });
                 saveUsers(users);
-
-                // 注册成功后清除验证码缓存
                 delete verificationCodes[email];
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -191,7 +188,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // 5. 静态文件托管
+    // 5. 静态 file 托管
     let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
     if (filePath.includes('users.json')) {
         res.writeHead(403, { 'Content-Type': 'text/plain' });
@@ -215,7 +212,6 @@ const server = http.createServer((req, res) => {
 });
 
 const actualPort = process.env.PORT || PORT;
-
 server.listen(actualPort, () => {
     console.log(`服务器已启动，监听端口: ${actualPort}`);
 });
