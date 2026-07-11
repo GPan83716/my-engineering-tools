@@ -6,17 +6,16 @@ const nodemailer = require('nodemailer'); // 引入发信模块
 const PORT = 3000;
 const DB_FILE = path.join(__dirname, 'users.json');
 
-// ==================== 【发信邮箱配置】 ====================
-// ⚠️ 本地测试时，请直接在下方填入您的 163 邮箱和 16 位授权密钥（注意不是登录密码）。
-// ⚠️ 稍后部署到 GitHub/Render 时，为了防泄露，我们会在 Render 后台配置环境变量，此处代码无需修改。
-const EMAIL_USER = process.env.EMAIL_USER || ''; 
-const EMAIL_PASS = process.env.EMAIL_PASS || ''; 
+// ==================== 【Brevo 发信邮箱配置】 ====================
+const EMAIL_USER = process.env.EMAIL_USER || ''; // 截图中的 Login 账号
+const EMAIL_PASS = process.env.EMAIL_PASS || '';     // 您生成的 xsmtpsib- 开头的密钥
+const SENDER_EMAIL = process.env.SENDER_EMAIL || ''; // 例如:  (必须是您注册Brevo的邮箱)
 
-// 创建邮件发送器 (网易 163 邮箱配置)
+// 创建邮件发送器
 const transporter = nodemailer.createTransport({
-    host: 'smtp.163.com',
+    host: 'smtp-relay.brevo.com',
     port: 587,
-    secure: true, // 163 邮箱 465 端口需要设置为 true
+    secure: false, // 587 端口必须为 false
     auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS
@@ -65,7 +64,7 @@ const server = http.createServer((req, res) => {
 
                 // 邮件内容配置
                 const mailOptions = {
-                    from: `"工程工具箱" <${EMAIL_USER}>`, // 发件人
+                    from: `"工程工具箱" <${SENDER_EMAIL}>`, // 发件人
                     to: email, // 收件人
                     subject: '【工程工具箱】注册验证码',
                     text: `您的验证码是：${code}，请在 5 分钟内输入。如果非本人操作，请忽略此邮件。`
@@ -215,6 +214,8 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`服务器已启动: http://localhost:${PORT}`);
+const actualPort = process.env.PORT || PORT;
+
+server.listen(actualPort, () => {
+    console.log(`服务器已启动，监听端口: ${actualPort}`);
 });
