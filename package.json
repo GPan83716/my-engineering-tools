@@ -1,0 +1,14 @@
+{
+  "name": "my-engineering-tools",
+  "version": "1.0.0",
+  "description": "在线工程工具箱",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>工程工具箱 | 门户</title>
+    <link rel="stylesheet" href="css/global.css">
+    <style>
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .tool-card {
+            background-color: #333;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+        .tool-card h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="logo">工程工具箱</div>
+    <div class="nav-links">
+        <span id="userInfo">未登录</span>
+        <button id="authBtn" onclick="handleAuthAction()">登录</button>
+    </div>
+</div>
+
+<div class="main-container">
+    <h2>欢迎来到工程工具箱</h2>
+    <p>请在上方登录后使用在线工具。</p>
+    
+    <!-- 工具列表区域 -->
+    <div class="tools-grid" id="toolsGrid" style="display: none;">
+        <div class="tool-card">
+            <h3>EVIYOS Video Tool</h3>
+            <p>视频转换与 VID 播放器</p>
+            <button class="btn-primary" onclick="location.href='tools/vid-tool.html'">打开工具</button>
+        </div>
+        <!-- 以后可以在这里添加更多工具卡片 -->
+    </div>
+</div>
+
+<script>
+    // 页面加载时执行检查
+    window.onload = function() {
+        const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+        const userInfo = document.getElementById('userInfo');
+        const authBtn = document.getElementById('authBtn');
+        const toolsGrid = document.getElementById('toolsGrid');
+
+        if (isLoggedIn) {
+            userInfo.innerText = "欢迎您，用户";
+            authBtn.innerText = "退出登录";
+            toolsGrid.style.display = "grid"; // 显示工具列表
+        } else {
+            userInfo.innerText = "访客";
+            authBtn.innerText = "去登录";
+            toolsGrid.style.display = "none"; // 隐藏工具列表
+        }
+    };
+
+    function handleAuthAction() {
+        const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+        if (isLoggedIn) {
+            // 执行登出
+            localStorage.removeItem('isLoggedIn');
+            location.reload();
+        } else {
+            // 跳转到登录页
+            location.href = 'login.html';
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>用户登录</title>
+    <link rel="stylesheet" href="css/global.css">
+    <style>
+        .login-box {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 30px;
+            background-color: var(--container-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label { margin-bottom: 5px; }
+        .form-group input {
+            padding: 8px;
+            background-color: #333;
+            border: 1px solid var(--border-color);
+            color: white;
+            border-radius: 4px;
+        }
+        .message {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-box">
+    <h2 style="margin-top:0; text-align: center;">用户登录</h2>
+    
+    <div class="form-group">
+        <label>用户名</label>
+        <input type="text" id="username" placeholder="请输入用户名">
+    </div>
+    <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="password" placeholder="请输入密码">
+    </div>
+    
+    <button class="btn-primary" style="width: 100%; margin-top: 10px;" onclick="doLogin()">登录</button>
+    
+    <div id="msg" class="message" style="color: red;"></div>
+    
+    <p style="text-align: center; margin-top: 15px;">
+        没有账号？<a href="register.html" style="color: var(--accent-color); text-decoration: none;">立即注册</a>
+    </p>
+    <p style="text-align: center; margin-top: 5px;">
+        <a href="index.html" style="color: #aaa; text-decoration: none;">返回主页</a>
+    </p>
+</div>
+
+<script>
+    async function doLogin() {
+        const u = document.getElementById('username').value;
+        const p = document.getElementById('password').value;
+        const msgDiv = document.getElementById('msg');
+
+        try {
+            // 向后端发送登录验证请求
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: u, password: p })
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                // 登录成功，保存后端传回的 Token，并跳转
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('userToken', data.token); // 保存凭证
+                location.href = 'index.html';
+            } else {
+                msgDiv.innerText = data.message || "登录失败";
+            }
+        } catch (err) {
+            msgDiv.innerText = "无法连接到服务器";
+        }
+    }
+</script>
+
+</body>
+</html>
